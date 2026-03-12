@@ -359,3 +359,4 @@ For support, email support@example.com or open an issue.
 
 Built with ❤️ for modern e-commerce businesses
 # Console-2.0
+# Console-2.0
