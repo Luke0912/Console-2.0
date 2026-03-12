@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6
+    container_name: instagram-dm-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: instagram_dm_saas
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: instagram-dm-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    command: redis-server --appendonly yes
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: instagram-dm-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/instagram_dm_saas?authSource=admin
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - app-network
+    command: npm run dev
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: instagram-dm-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/instagram_dm_saas?authSource=admin
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - app-network
+    command: npm run worker
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: instagram-dm-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    command: npm run dev
+
+volumes:
+  mongodb_data:
+  mongodb_config:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge
